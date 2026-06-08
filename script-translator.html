@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Script Translator — Dutch → English</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+    --text:#e8eaed; --muted:#9aa3b2; --accent:#4f8cff; --accent2:#3ad29f;
+    --warn:#ffb84d; --danger:#ff5f6d;
+    --btnhover:#222838; --focus:#202636; --encell:#15211b;
+    --greentext:#06281c;
+  }
+  :root[data-theme="light"]{
+    --bg:#ffffff; --panel:#f5f7fa; --panel2:#eaeef4; --line:#d4dae3;
+    --text:#1b2330; --muted:#5d6b80; --accent:#2563eb; --accent2:#0d9488;
+    --warn:#b45309; --danger:#dc2626;
+    --btnhover:#e2e8f2; --focus:#dbe6ff; --encell:#edfaf4;
+    --greentext:#ffffff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
+  header{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;
+    position:sticky;top:0;background:var(--bg);z-index:5}
+  header h1{font-size:18px;margin:0;font-weight:650}
+  header .sub{color:var(--muted);font-size:12.5px}
+  .layout{display:flex;min-height:calc(100vh - 61px)}
+  .main{flex:1;padding:24px;min-width:0}
+  .side{width:280px;border-left:1px solid var(--line);background:var(--panel);padding:18px;overflow:auto}
+  textarea{width:100%;min-height:160px;background:var(--panel);color:var(--text);border:1px solid var(--line);
+    border-radius:10px;padding:14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;resize:vertical}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+  button{background:var(--panel2);color:var(--text);border:1px solid var(--line);padding:9px 16px;border-radius:9px;
+    cursor:pointer;font-size:13px;font-weight:550;transition:.15s}
+  button:hover{border-color:var(--accent);background:var(--btnhover)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{filter:brightness(1.08)}
+  button.green{background:var(--accent2);border-color:var(--accent2);color:var(--greentext)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .hint{color:var(--muted);font-size:12px;margin:6px 0 0}
+  table{border-collapse:collapse;width:100%;margin-top:14px;background:var(--panel);border-radius:10px;overflow:hidden}
+  th,td{border:1px solid var(--line);padding:9px 11px;vertical-align:top;text-align:left}
+  th{background:var(--panel2);font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);position:sticky;top:0;z-index:1}
+  td[contenteditable]{outline:none}
+  td[contenteditable]:focus{background:var(--focus);box-shadow:inset 0 0 0 2px var(--accent)}
+  td.en{background:var(--encell)}
+  td.num{font-weight:650;white-space:nowrap;color:var(--accent)}
+  td.type{color:var(--muted);white-space:nowrap}
+  .tablewrap{overflow:auto;border-radius:10px;border:1px solid var(--line)}
+  .status{font-size:12.5px;color:var(--muted);min-height:18px}
+  .status.err{color:var(--danger)}
+  .status.ok{color:var(--accent2)}
+  .bar{height:6px;background:var(--panel2);border-radius:6px;overflow:hidden;margin:8px 0;display:none}
+  .bar>div{height:100%;background:var(--accent);width:0;transition:width .2s}
+  h3{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:0 0 10px}
+  .hist{list-style:none;padding:0;margin:0}
+  .hist li{padding:10px 12px;border:1px solid var(--line);border-radius:9px;margin-bottom:8px;cursor:pointer;background:var(--panel2)}
+  .hist li:hover{border-color:var(--accent)}
+  .hist .t{font-weight:600;font-size:13px}
+  .hist .d{color:var(--muted);font-size:11.5px;margin-top:2px}
+  .hist .x{float:right;color:var(--muted);font-size:12px;border:none;background:none;padding:0 4px}
+  .hist .x:hover{color:var(--danger)}
+  .empty{color:var(--muted);font-size:12.5px}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0}
+  .pill{font-size:11.5px;color:var(--muted);border:1px solid var(--line);padding:3px 9px;border-radius:20px}
+  a.link{color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <h1>📝 Script Translator</h1>
+  <span class="sub">Dutch → English · paste a script, get a clean bilingual table</span>
+  <button id="themeBtn" style="margin-left:auto" title="Switch between dark and light mode">🌙 Dark</button>
+</header>
+
+<div class="layout">
+  <div class="main">
+    <textarea id="input" placeholder="Paste your script here (Nummer / Type / Script / Shots layout)…"></textarea>
+    <div class="row">
+      <button class="primary" id="parseBtn">① Parse script</button>
+      <button class="green" id="translateBtn" disabled>② Translate to English</button>
+      <button id="sampleBtn">Load sample</button>
+      <button id="clearBtn">Clear</button>
+    </div>
+    <p class="hint">Every cell is editable — fix any mis-parsed text before translating or exporting.</p>
+
+    <div class="bar" id="bar"><div></div></div>
+    <div class="status" id="status"></div>
+
+    <div class="toolbar" id="exportBar" style="display:none">
+      <span class="pill" id="rowCount">0 rows</span>
+      <button id="copyBtn">📋 Copy for Google Docs</button>
+      <button id="elevenBtn" class="green">🎙️ Copy Script (NL) for ElevenLabs</button>
+      <button id="copyTsvBtn">Copy as TSV</button>
+      <button id="pdfBtn">⬇️ Download PDF</button>
+      <button id="saveBtn">💾 Re-save edits</button>
+    </div>
+
+    <div class="tablewrap" id="tableWrap"></div>
+  </div>
+
+  <aside class="side">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <h3>History</h3>
+      <button id="clearHistBtn" style="padding:4px 10px;font-size:11px" title="Delete all saved translations">Clear all</button>
+    </div>
+    <p class="hint" style="margin:0 0 12px">Saved automatically after each translation. Click one to reopen, or ✕ to delete.</p>
+    <ul class="hist" id="histList"></ul>
+    <p class="empty" id="histEmpty">No saved translations yet.</p>
+  </aside>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let rows = []; // {nummer, type, script, scriptEn, shots, shotsEn}
+
+/* ---------- Parsing ---------- */
+function parseScript(text){
+  const linesRaw = text.replace(/\r/g,'').split('\n');
+  const lines = linesRaw.map(l=>l.trim()).filter(l=>l.length>0);
+
+  // drop leading header row (Nummer/Type/Script/Shots) if present
+  const headerWords = ['nummer','type','script','shots'];
+  let start = 0;
+  for(let i=0;i<Math.min(4,lines.length);i++){
+    if(headerWords.includes(lines[i].toLowerCase())) start = i+1;
+  }
+
+  const isNummer = l => /^(hook\s*\d+|cta|intro|outro|\d+(\.\d+)?)\.?$/i.test(l);
+  const out = [];
+  let cur = null;
+  for(let i=start;i<lines.length;i++){
+    const l = lines[i];
+    if(isNummer(l)){
+      if(cur) out.push(cur);
+      cur = {nummer:l, type:'', script:'', shots:'', body:[]};
+    } else if(cur){
+      cur.body.push(l);
+    }
+  }
+  if(cur) out.push(cur);
+
+  // For each record: optional Type (Voice over / VO), then first chunk = Script, rest = Shots
+  return out.map(r=>{
+    let body = r.body.slice();
+    let type = '';
+    if(body.length && /^(voice ?over|vo|v\.o\.?)$/i.test(body[0])){
+      type = body.shift();
+    }
+    const script = body.shift() || '';
+    const shots  = body.join(' ');
+    return {nummer:r.nummer, type:type||'Voice over', script, scriptEn:'', shots, shotsEn:''};
+  });
+}
+
+/* ---------- Render ---------- */
+function render(){
+  if(!rows.length){ $('tableWrap').innerHTML=''; $('exportBar').style.display='none'; return; }
+  const cols = [
+    ['nummer','Nummer','num'],
+    ['type','Type','type'],
+    ['script','Script (NL)',''],
+    ['scriptEn','Script (EN)','en'],
+    ['shots','Shots (NL)',''],
+    ['shotsEn','Shots (EN)','en'],
+  ];
+  let html = '<table><thead><tr>'+cols.map(c=>`<th>${c[1]}</th>`).join('')+'</tr></thead><tbody>';
+  rows.forEach((r,ri)=>{
+    html += '<tr>'+cols.map(c=>{
+      const cls = c[2]?` class="${c[2]}"`:'';
+      return `<td${cls} contenteditable data-r="${ri}" data-k="${c[0]}">${escapeHtml(r[c[0]]||'')}</td>`;
+    }).join('')+'</tr>';
+  });
+  html += '</tbody></table>';
+  $('tableWrap').innerHTML = html;
+  $('tableWrap').querySelectorAll('td[contenteditable]').forEach(td=>{
+    td.addEventListener('input',()=>{ rows[td.dataset.r][td.dataset.k] = td.innerText; });
+  });
+  $('exportBar').style.display='flex';
+  $('rowCount').textContent = rows.length+' rows';
+}
+function escapeHtml(s){return s.replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
+
+/* ---------- Translation (MyMemory free API, NL→EN) ---------- */
+async function translateText(text){
+  text = (text||'').trim();
+  if(!text) return '';
+  // split into <=480 char chunks on sentence boundaries to respect API limits
+  const chunks = chunkText(text, 480);
+  const parts = [];
+  for(const ch of chunks){
+    const url = 'https://api.mymemory.translated.net/get?q='+encodeURIComponent(ch)+'&langpair=nl|en';
+    const res = await fetch(url);
+    const data = await res.json();
+    let t = data && data.responseData ? data.responseData.translatedText : ch;
+    if(/MYMEMORY WARNING|QUERY LENGTH LIMIT/i.test(t)) throw new Error('Translation API limit reached. Try again later.');
+    parts.push(t);
+  }
+  return parts.join(' ');
+}
+function chunkText(text, max){
+  if(text.length<=max) return [text];
+  const sentences = text.match(/[^.!?]+[.!?]*\s*/g) || [text];
+  const out=[]; let buf='';
+  for(const s of sentences){
+    if((buf+s).length>max){ if(buf)out.push(buf.trim()); buf=s; }
+    else buf+=s;
+  }
+  if(buf)out.push(buf.trim());
+  return out;
+}
+
+async function translateAll(){
+  setBusy(true);
+  const bar=$('bar'); bar.style.display='block'; bar.firstElementChild.style.width='0';
+  status('Translating…');
+  const total = rows.length*2; let done=0;
+  try{
+    for(let i=0;i<rows.length;i++){
+      rows[i].scriptEn = await translateText(rows[i].script); done++; progress(done,total);
+      rows[i].shotsEn  = await translateText(rows[i].shots);  done++; progress(done,total);
+      render();
+    }
+    saveCurrent(true); // auto-save to history
+    status('✓ Translation complete — '+rows.length+' rows · saved to history.','ok');
+  }catch(e){
+    status('Error: '+e.message,'err');
+  }finally{
+    setBusy(false); setTimeout(()=>bar.style.display='none',800);
+  }
+}
+function progress(d,t){ $('bar').firstElementChild.style.width=(d/t*100)+'%'; status('Translating… '+Math.round(d/t*100)+'%'); }
+function setBusy(b){ ['parseBtn','translateBtn','sampleBtn'].forEach(id=>$(id).disabled=b); }
+function status(msg,cls){ const s=$('status'); s.textContent=msg||''; s.className='status'+(cls?' '+cls:''); }
+
+/* ---------- Export ---------- */
+function buildHtmlTable(){
+  const cols=[['nummer','Nummer'],['type','Type'],['script','Script (NL)'],['scriptEn','Script (EN)'],['shots','Shots (NL)'],['shotsEn','Shots (EN)']];
+  let h='<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse"><thead><tr>'+
+    cols.map(c=>`<th style="background:#eee">${c[1]}</th>`).join('')+'</tr></thead><tbody>';
+  rows.forEach(r=>{ h+='<tr>'+cols.map(c=>`<td>${escapeHtml(r[c[0]]||'')}</td>`).join('')+'</tr>'; });
+  return h+'</tbody></table>';
+}
+async function copyForDocs(){
+  if(!rows.length){ status('Nothing to copy yet.','err'); return; }
+  // Method that works even on file:// — select a real rendered table and copy it.
+  if(copyTableViaSelection()){
+    status('✓ Copied the full table! Paste into Google Docs (Cmd+V) — it becomes a table.','ok');
+    return;
+  }
+  // Fallback to async clipboard API (works on https/localhost)
+  const html=buildHtmlTable();
+  const plain=rows.map(r=>[r.nummer,r.type,r.script,r.scriptEn,r.shots,r.shotsEn].join('\t')).join('\n');
+  try{
+    await navigator.clipboard.write([new ClipboardItem({
+      'text/html':new Blob([html],{type:'text/html'}),
+      'text/plain':new Blob([plain],{type:'text/plain'})
+    })]);
+    status('✓ Copied the full table! Paste into Google Docs — it becomes a table.','ok');
+  }catch(e){ copyTsv(); }
+}
+function copyTableViaSelection(){
+  try{
+    const holder=document.createElement('div');
+    holder.style.cssText='position:fixed;left:-9999px;top:0;white-space:normal;';
+    holder.innerHTML=buildHtmlTable();
+    document.body.appendChild(holder);
+    const range=document.createRange();
+    range.selectNodeContents(holder.firstChild);
+    const sel=window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    const ok=document.execCommand('copy');
+    sel.removeAllRanges();
+    document.body.removeChild(holder);
+    return ok;
+  }catch(e){ return false; }
+}
+function copyPlainText(text){
+  // works on file:// where navigator.clipboard may be blocked
+  try{
+    const ta=document.createElement('textarea');
+    ta.value=text; ta.style.cssText='position:fixed;left:-9999px;top:0;';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    const ok=document.execCommand('copy');
+    document.body.removeChild(ta);
+    if(ok) return true;
+  }catch(e){}
+  if(navigator.clipboard){ navigator.clipboard.writeText(text); return true; }
+  return false;
+}
+function copyTsv(){
+  const header=['Nummer','Type','Script (NL)','Script (EN)','Shots (NL)','Shots (EN)'].join('\t');
+  const body=rows.map(r=>[r.nummer,r.type,r.script,r.scriptEn,r.shots,r.shotsEn].join('\t')).join('\n');
+  if(copyPlainText(header+'\n'+body)) status('✓ Copied as TSV (tab-separated).','ok');
+  else status('Copy failed — try again.','err');
+}
+function copyForEleven(){
+  const text=rows.map(r=>(r.script||'').trim()).filter(Boolean).join('\n\n');
+  if(!text){ status('No Script (NL) text to copy.','err'); return; }
+  if(copyPlainText(text)) status('✓ Copied Script (NL) — paste into ElevenLabs. '+rows.filter(r=>(r.script||'').trim()).length+' lines.','ok');
+  else status('Copy failed — try again.','err');
+}
+function downloadPdf(){
+  const { jsPDF }=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape',unit:'pt',format:'a4'});
+  doc.setFontSize(15); doc.text('Script Translation — Dutch → English',40,40);
+  doc.setFontSize(9); doc.setTextColor(120); doc.text(new Date().toLocaleString(),40,56);
+  doc.autoTable({
+    startY:72,
+    head:[['Nummer','Type','Script (NL)','Script (EN)','Shots (NL)','Shots (EN)']],
+    body:rows.map(r=>[r.nummer,r.type,r.script,r.scriptEn,r.shots,r.shotsEn]),
+    styles:{fontSize:8,cellPadding:4,valign:'top',overflow:'linebreak'},
+    headStyles:{fillColor:[79,140,255],textColor:255},
+    columnStyles:{0:{cellWidth:46},1:{cellWidth:50},2:{cellWidth:160},3:{cellWidth:160},4:{cellWidth:150},5:{cellWidth:150}},
+    alternateRowStyles:{fillColor:[245,247,250]}
+  });
+  doc.save('script-translation-'+Date.now()+'.pdf');
+  status('✓ PDF downloaded.','ok');
+}
+
+/* ---------- History (localStorage) ---------- */
+const HKEY='scriptTranslatorHistory';
+function loadHist(){ try{return JSON.parse(localStorage.getItem(HKEY))||[];}catch(e){return [];} }
+function saveHist(list){ localStorage.setItem(HKEY,JSON.stringify(list)); }
+function saveCurrent(silent){
+  if(!rows.length) return;
+  const list=loadHist();
+  const title=(rows[0].script||rows[0].nummer||'Untitled').slice(0,40);
+  list.unshift({id:Date.now(),title,date:new Date().toLocaleString(),rows:JSON.parse(JSON.stringify(rows))});
+  saveHist(list.slice(0,50)); renderHist();
+  if(!silent) status('✓ Saved to history.','ok');
+}
+function renderHist(){
+  const list=loadHist(); const ul=$('histList');
+  $('histEmpty').style.display=list.length?'none':'block';
+  ul.innerHTML=list.map(h=>`<li data-id="${h.id}"><button class="x" data-del="${h.id}">✕</button>
+    <div class="t">${escapeHtml(h.title)}</div><div class="d">${h.date} · ${h.rows.length} rows</div></li>`).join('');
+  ul.querySelectorAll('li').forEach(li=>{
+    li.addEventListener('click',e=>{
+      if(e.target.dataset.del) return;
+      const h=loadHist().find(x=>x.id==li.dataset.id);
+      if(h){ rows=JSON.parse(JSON.stringify(h.rows)); render(); status('Loaded from history.','ok'); window.scrollTo(0,0); }
+    });
+  });
+  ul.querySelectorAll('[data-del]').forEach(b=>{
+    b.addEventListener('click',e=>{ e.stopPropagation();
+      saveHist(loadHist().filter(x=>x.id!=b.dataset.del)); renderHist(); });
+  });
+}
+
+/* ---------- Sample ---------- */
+const SAMPLE=`Nummer
+Type
+Script
+Shots
+Hook 1
+ Voice over
+Geen tijd om de BBQ schoon te maken? Dan heb je dit nodig deze zomer.
+Split screen. Links oude manier BBQ schrobben. Rechts; product in gebruik.
+Hook 2
+ Voice over
+Elke BBQ-liefhebber moet dit weten.
+Shot vieze BBQ. Cut naar product in gebruik, BBQ wordt schoon.
+1.1
+ Voice over
+Die lange zomeravonden met vrienden in de tuin zijn heerlijk. Lekker BBQ'en, wat drinken erbij en genieten van het mooie weer.
+Hebben we shots van een BBQ, of iets gezelligs in de tuin?
+1.3
+ Voice over
+Daarom gebruik ik de Draadloze Hogedrukreiniger van Achaté.
+Product pakken en aanzetten.
+CTA
+ Voice over
+Shop de Draadloze Hogedrukreiniger nu tijdens de Zomer Sale met kortingen tot 30% op www.achate.com
+Product shot. Logo + URL. Korting en sale groot in beeld.`;
+
+/* ---------- Wire up ---------- */
+$('parseBtn').onclick=()=>{
+  rows=parseScript($('input').value);
+  if(!rows.length){ status('Could not find any rows. Check the layout.','err'); return; }
+  render(); $('translateBtn').disabled=false;
+  status('Parsed '+rows.length+' rows. Edit if needed, then translate.','ok');
+};
+$('translateBtn').onclick=translateAll;
+$('sampleBtn').onclick=()=>{ $('input').value=SAMPLE; status('Sample loaded — click Parse.'); };
+$('clearBtn').onclick=()=>{ $('input').value=''; rows=[]; render(); $('translateBtn').disabled=true; status(''); };
+$('copyBtn').onclick=copyForDocs;
+$('elevenBtn').onclick=copyForEleven;
+$('copyTsvBtn').onclick=copyTsv;
+$('pdfBtn').onclick=downloadPdf;
+$('saveBtn').onclick=()=>saveCurrent(false);
+$('clearHistBtn').onclick=()=>{
+  if(!loadHist().length){ status('History is already empty.'); return; }
+  if(confirm('Delete ALL saved translations? This cannot be undone.')){
+    saveHist([]); renderHist(); status('History cleared.','ok');
+  }
+};
+renderHist();
+
+/* ---------- Theme ---------- */
+function applyTheme(t){
+  if(t==='light') document.documentElement.setAttribute('data-theme','light');
+  else document.documentElement.removeAttribute('data-theme');
+  $('themeBtn').textContent = t==='light' ? '☀️ Light' : '🌙 Dark';
+  localStorage.setItem('scriptTranslatorTheme', t);
+}
+$('themeBtn').onclick=()=>{
+  const cur=document.documentElement.getAttribute('data-theme')==='light'?'light':'dark';
+  applyTheme(cur==='light'?'dark':'light');
+};
+applyTheme(localStorage.getItem('scriptTranslatorTheme')||'dark');
+</script>
+</body>
+</html>

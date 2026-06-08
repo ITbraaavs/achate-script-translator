@@ -98,6 +98,7 @@
       <button id="copyBtn">📋 Copy for Google Docs</button>
       <button id="elevenBtn" class="green">🎙️ Copy Script (NL) for ElevenLabs</button>
       <button id="copyTsvBtn">Copy as TSV</button>
+      <button id="srtBtn">🎬 Generate SRT</button>
       <button id="pdfBtn">⬇️ Download PDF</button>
       <button id="saveBtn">💾 Re-save edits</button>
     </div>
@@ -327,6 +328,40 @@ function downloadPdf(){
   status('✓ PDF downloaded.','ok');
 }
 
+/* ---------- SRT export (Script NL, 20-second cues) ---------- */
+const SRT_SECONDS = 20; // each subtitle spans a 20-second range
+function srtTime(totalSeconds){
+  const h=Math.floor(totalSeconds/3600);
+  const m=Math.floor((totalSeconds%3600)/60);
+  const s=Math.floor(totalSeconds%60);
+  const ms=Math.round((totalSeconds-Math.floor(totalSeconds))*1000);
+  const pad=(n,l=2)=>String(n).padStart(l,'0');
+  return `${pad(h)}:${pad(m)}:${pad(s)},${pad(ms,3)}`;
+}
+function buildSrt(){
+  let idx=0, t=0, out=[];
+  rows.forEach(r=>{
+    const text=(r.script||'').trim();
+    if(!text) return;
+    idx++;
+    const start=srtTime(t), end=srtTime(t+SRT_SECONDS);
+    out.push(idx+'\n'+start+' --> '+end+'\n'+text);
+    t+=SRT_SECONDS;
+  });
+  return out.join('\n\n')+'\n';
+}
+function downloadSrt(){
+  const cues=rows.filter(r=>(r.script||'').trim()).length;
+  if(!cues){ status('No Script (NL) text to build subtitles from.','err'); return; }
+  const blob=new Blob([buildSrt()],{type:'application/x-subrip;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='script-'+Date.now()+'.srt';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  status('✓ SRT downloaded — '+cues+' subtitles, '+SRT_SECONDS+'s each (Script NL).','ok');
+}
+
 /* ---------- History (localStorage) ---------- */
 const HKEY='scriptTranslatorHistory';
 function loadHist(){ try{return JSON.parse(localStorage.getItem(HKEY))||[];}catch(e){return [];} }
@@ -396,6 +431,7 @@ $('clearBtn').onclick=()=>{ $('input').value=''; rows=[]; render(); $('translate
 $('copyBtn').onclick=copyForDocs;
 $('elevenBtn').onclick=copyForEleven;
 $('copyTsvBtn').onclick=copyTsv;
+$('srtBtn').onclick=downloadSrt;
 $('pdfBtn').onclick=downloadPdf;
 $('saveBtn').onclick=()=>saveCurrent(false);
 $('clearHistBtn').onclick=()=>{

@@ -68,6 +68,8 @@
   .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0}
   .pill{font-size:11.5px;color:var(--muted);border:1px solid var(--line);padding:3px 9px;border-radius:20px}
   a.link{color:var(--accent)}
+  footer{padding:14px 24px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;text-align:center}
+  footer strong{color:var(--text);font-weight:600}
 </style>
 </head>
 <body>
@@ -113,6 +115,8 @@
     <p class="empty" id="histEmpty">No saved translations yet.</p>
   </aside>
 </div>
+
+<footer>Created by <strong>christinebravo</strong></footer>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -309,7 +313,7 @@ function downloadPdf(){
   const { jsPDF }=window.jspdf;
   const doc=new jsPDF({orientation:'landscape',unit:'pt',format:'a4'});
   doc.setFontSize(15); doc.text('Script Translation — Dutch → English',40,40);
-  doc.setFontSize(9); doc.setTextColor(120); doc.text(new Date().toLocaleString(),40,56);
+  doc.setFontSize(9); doc.setTextColor(120); doc.text(new Date().toLocaleString()+'  ·  Created by christinebravo',40,56);
   doc.autoTable({
     startY:72,
     head:[['Nummer','Type','Script (NL)','Script (EN)','Shots (NL)','Shots (EN)']],

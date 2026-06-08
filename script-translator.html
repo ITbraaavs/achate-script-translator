@@ -328,8 +328,10 @@ function downloadPdf(){
   status('✓ PDF downloaded.','ok');
 }
 
-/* ---------- SRT export (Script NL, 20-second cues) ---------- */
-const SRT_SECONDS = 20; // each subtitle spans a 20-second range
+/* ---------- SRT export (Script NL, 20-second cues, 2 lines × 15 chars) ---------- */
+const SRT_SECONDS = 20;   // each Script (NL) row spans a 20-second range
+const SRT_MAXCHARS = 15;  // max characters per subtitle line
+const SRT_MAXLINES = 2;   // max lines per subtitle cue
 function srtTime(totalSeconds){
   const h=Math.floor(totalSeconds/3600);
   const m=Math.floor((totalSeconds%3600)/60);
@@ -338,28 +340,54 @@ function srtTime(totalSeconds){
   const pad=(n,l=2)=>String(n).padStart(l,'0');
   return `${pad(h)}:${pad(m)}:${pad(s)},${pad(ms,3)}`;
 }
+// word-wrap text into lines of at most maxChars (hard-splitting any word longer than maxChars)
+function wrapToLines(text, maxChars){
+  const lines=[]; let cur='';
+  text.split(/\s+/).filter(Boolean).forEach(word=>{
+    let w=word;
+    while(w.length>maxChars){               // word itself too long → hard split
+      if(cur){ lines.push(cur); cur=''; }
+      lines.push(w.slice(0,maxChars));
+      w=w.slice(maxChars);
+    }
+    if(!cur) cur=w;
+    else if((cur+' '+w).length<=maxChars) cur+=' '+w;
+    else { lines.push(cur); cur=w; }
+  });
+  if(cur) lines.push(cur);
+  return lines;
+}
 function buildSrt(){
   let idx=0, t=0, out=[];
   rows.forEach(r=>{
     const text=(r.script||'').trim();
     if(!text) return;
-    idx++;
-    const start=srtTime(t), end=srtTime(t+SRT_SECONDS);
-    out.push(idx+'\n'+start+' --> '+end+'\n'+text);
+    // wrap to ≤15-char lines, then group every 2 lines into one cue
+    const lines=wrapToLines(text, SRT_MAXCHARS);
+    const cues=[];
+    for(let i=0;i<lines.length;i+=SRT_MAXLINES) cues.push(lines.slice(i,i+SRT_MAXLINES).join('\n'));
+    // share this row's 20-second window evenly across its cues
+    const per=SRT_SECONDS/cues.length;
+    cues.forEach((cueText,ci)=>{
+      idx++;
+      const start=srtTime(t+ci*per), end=srtTime(t+(ci+1)*per);
+      out.push(idx+'\n'+start+' --> '+end+'\n'+cueText);
+    });
     t+=SRT_SECONDS;
   });
   return out.join('\n\n')+'\n';
 }
 function downloadSrt(){
-  const cues=rows.filter(r=>(r.script||'').trim()).length;
-  if(!cues){ status('No Script (NL) text to build subtitles from.','err'); return; }
-  const blob=new Blob([buildSrt()],{type:'application/x-subrip;charset=utf-8'});
+  if(!rows.filter(r=>(r.script||'').trim()).length){ status('No Script (NL) text to build subtitles from.','err'); return; }
+  const srt=buildSrt();
+  const cues=srt.trim()?srt.trim().split('\n\n').length:0;
+  const blob=new Blob([srt],{type:'application/x-subrip;charset=utf-8'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download='script-'+Date.now()+'.srt';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  status('✓ SRT downloaded — '+cues+' subtitles, '+SRT_SECONDS+'s each (Script NL).','ok');
+  status('✓ SRT downloaded — '+cues+' subtitles, max '+SRT_MAXLINES+' lines × '+SRT_MAXCHARS+' chars (Script NL).','ok');
 }
 
 /* ---------- History (localStorage) ---------- */

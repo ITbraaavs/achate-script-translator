@@ -340,16 +340,11 @@ function srtTime(totalSeconds){
   const pad=(n,l=2)=>String(n).padStart(l,'0');
   return `${pad(h)}:${pad(m)}:${pad(s)},${pad(ms,3)}`;
 }
-// word-wrap text into lines of at most maxChars (hard-splitting any word longer than maxChars)
+// word-wrap text into lines of at most maxChars — never splits a word.
+// A word longer than maxChars stays whole on its own line (overflowing the limit).
 function wrapToLines(text, maxChars){
   const lines=[]; let cur='';
-  text.split(/\s+/).filter(Boolean).forEach(word=>{
-    let w=word;
-    while(w.length>maxChars){               // word itself too long → hard split
-      if(cur){ lines.push(cur); cur=''; }
-      lines.push(w.slice(0,maxChars));
-      w=w.slice(maxChars);
-    }
+  text.split(/\s+/).filter(Boolean).forEach(w=>{
     if(!cur) cur=w;
     else if((cur+' '+w).length<=maxChars) cur+=' '+w;
     else { lines.push(cur); cur=w; }

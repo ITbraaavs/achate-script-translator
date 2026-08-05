@@ -2,8 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Script Translator — Dutch/German → English</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
 <style>
   :root {
@@ -32,14 +36,17 @@
     --english: #edfaf4;
   }
 
-  * { box-sizing: border-box; }
+  * {
+    box-sizing: border-box;
+  }
 
   body {
     margin: 0;
-    background: var(--bg);
     color: var(--text);
+    background: var(--bg);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-size: 14px;
+    line-height: 1.45;
   }
 
   header {
@@ -48,6 +55,7 @@
     gap: 14px;
     padding: 18px 24px;
     border-bottom: 1px solid var(--line);
+    background: var(--bg);
   }
 
   header h1 {
@@ -57,12 +65,14 @@
 
   .subtitle {
     color: var(--muted);
-    font-size: 12px;
+    font-size: 12.5px;
+  }
+
+  #themeBtn {
+    margin-left: auto;
   }
 
   main {
-    max-width: 1400px;
-    margin: auto;
     padding: 24px;
   }
 
@@ -75,12 +85,14 @@
     border: 1px solid var(--line);
     border-radius: 10px;
     resize: vertical;
-    font-family: ui-monospace, monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px;
   }
 
   .toolbar {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 10px;
     margin: 14px 0;
   }
@@ -93,6 +105,7 @@
     border: 1px solid var(--line);
     border-radius: 9px;
     font-size: 13px;
+    font-weight: 550;
     cursor: pointer;
   }
 
@@ -118,10 +131,6 @@
     cursor: not-allowed;
   }
 
-  #themeBtn {
-    margin-left: auto;
-  }
-
   .hint,
   .status {
     color: var(--muted);
@@ -133,8 +142,13 @@
     margin: 8px 0;
   }
 
-  .status.ok { color: var(--green); }
-  .status.error { color: var(--danger); }
+  .status.ok {
+    color: var(--green);
+  }
+
+  .status.error {
+    color: var(--danger);
+  }
 
   .progress {
     display: none;
@@ -148,6 +162,10 @@
     width: 0;
     height: 100%;
     background: var(--accent);
+  }
+
+  .exports {
+    display: none;
   }
 
   .table-wrapper {
@@ -164,7 +182,7 @@
 
   th,
   td {
-    padding: 10px 12px;
+    padding: 9px 11px;
     text-align: left;
     vertical-align: top;
     border: 1px solid var(--line);
@@ -175,16 +193,17 @@
     background: var(--panel2);
     font-size: 12px;
     text-transform: uppercase;
+    letter-spacing: .4px;
   }
 
-  th:first-child,
-  td:first-child {
-    width: 110px;
-  }
-
-  td:first-child {
+  td.number {
     color: var(--accent);
     font-weight: 650;
+    white-space: nowrap;
+  }
+
+  td.type {
+    color: var(--muted);
     white-space: nowrap;
   }
 
@@ -197,10 +216,6 @@
     outline-offset: -2px;
   }
 
-  .exports {
-    display: none;
-  }
-
   footer {
     margin-top: 30px;
     padding: 16px;
@@ -208,10 +223,39 @@
     text-align: center;
     border-top: 1px solid var(--line);
   }
+
+  @media print {
+    header,
+    textarea,
+    .toolbar,
+    .hint,
+    .status,
+    .progress,
+    footer {
+      display: none !important;
+    }
+
+    main {
+      padding: 0;
+    }
+
+    table {
+      color: black;
+      background: white;
+    }
+
+    th,
+    td {
+      color: black !important;
+      background: white !important;
+      border: 1px solid #aaa;
+    }
+  }
 </style>
 </head>
 
 <body>
+
 <header>
   <h1>📝 Script Translator</h1>
   <span class="subtitle" id="subtitle"></span>
@@ -222,22 +266,24 @@
   <textarea id="input"></textarea>
 
   <div class="toolbar">
-    <select id="languageSelect" aria-label="Source language">
-      <option value="de">German → English</option>
+    <select id="languageSelect" aria-label="Translation language">
       <option value="nl">Dutch → English</option>
+      <option value="de">German → English</option>
     </select>
 
-    <button class="primary" id="parseBtn">① Parse script</button>
+    <button class="primary" id="parseBtn">
+      ① Parse script
+    </button>
+
     <button class="green" id="translateBtn" disabled>
       ② Translate to English
     </button>
+
     <button id="sampleBtn">Load sample</button>
     <button id="clearBtn">Clear</button>
   </div>
 
-  <p class="hint">
-    The result has three editable columns: Nummer, source language, and English.
-  </p>
+  <p class="hint" id="layoutHint"></p>
 
   <div class="progress" id="progress">
     <div></div>
@@ -246,592 +292,34 @@
   <div class="status" id="status"></div>
 
   <div class="toolbar exports" id="exports">
-    <button id="copyTableBtn">📋 Copy table</button>
-    <button id="copyVoiceBtn" class="green">🎙️ Copy for ElevenLabs</button>
+    <button id="copyTableBtn">📋 Copy for Google Docs</button>
+    <button class="green" id="elevenBtn">🎙️ Copy Script for ElevenLabs</button>
     <button id="copyTsvBtn">Copy as TSV</button>
     <button id="srtBtn">🎬 Generate SRT</button>
-    <button id="printBtn">⬇️ Save as PDF</button>
+    <button id="pdfBtn">⬇️ Download PDF</button>
+    <button id="saveBtn">💾 Save edits</button>
   </div>
 
   <div class="table-wrapper" id="tableWrapper"></div>
 </main>
 
-<footer>Created by <strong>christinebravo</strong></footer>
+<footer>
+  Created by <strong>christinebravo</strong>
+</footer>
 
 <script>
 const $ = id => document.getElementById(id);
 
 const LANGUAGES = {
-  de: {
-    name: "German",
-    nativeName: "Deutsch",
-    apiCode: "de",
-    sample: `Nummer
-Deutsch
-Hook 1
-Keine Zeit, den Grill zu reinigen? Dann brauchst du das diesen Sommer.
-Hook 2
-Jeder Grillfan sollte das wissen.
-1.1
-Die langen Sommerabende mit Freunden im Garten sind wunderbar.
-1.2
-Deshalb benutze ich den kabellosen Hochdruckreiniger von Achaté.
-CTA
-Kaufe den kabellosen Hochdruckreiniger jetzt im Sommerschlussverkauf.`
-  },
-
   nl: {
     name: "Dutch",
-    nativeName: "Nederlands",
-    apiCode: "nl",
+    code: "nl",
+    scriptLabel: "Script (NL)",
+    scriptEnglishLabel: "Script (EN)",
+    shotsLabel: "Shots (NL)",
+    shotsEnglishLabel: "Shots (EN)",
+    translateShots: true,
+
     sample: `Nummer
-Nederlands
-Hook 1
-Geen tijd om de BBQ schoon te maken? Dan heb je dit deze zomer nodig.
-Hook 2
-Elke BBQ-liefhebber moet dit weten.
-1.1
-Die lange zomeravonden met vrienden in de tuin zijn heerlijk.
-1.2
-Daarom gebruik ik de draadloze hogedrukreiniger van Achaté.
-CTA
-Shop de draadloze hogedrukreiniger nu tijdens de zomersale.`
-  }
-};
-
-let rows = [];
-let sourceLanguage =
-  localStorage.getItem("translatorSourceLanguage") || "de";
-
-function currentLanguage() {
-  return LANGUAGES[sourceLanguage];
-}
-
-function escapeHtml(value) {
-  return String(value || "").replace(/[&<>]/g, character => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;"
-  })[character]);
-}
-
-function showStatus(message, type = "") {
-  $("status").textContent = message;
-  $("status").className = "status" + (type ? " " + type : "");
-}
-
-function updateLanguageInterface() {
-  const language = currentLanguage();
-
-  $("languageSelect").value = sourceLanguage;
-  $("subtitle").textContent =
-    language.name + " → English · three-column translation";
-
-  $("input").placeholder =
-    "Paste your " + language.name +
-    " script here (Nummer / " + language.nativeName + ")…";
-
-  $("copyVoiceBtn").textContent =
-    "🎙️ Copy " + language.name + " for ElevenLabs";
-
-  localStorage.setItem("translatorSourceLanguage", sourceLanguage);
-
-  renderTable();
-}
-
-function parseScript(text) {
-  const language = currentLanguage();
-
-  const headerWords = [
-    "nummer",
-    "number",
-    "script",
-    "deutsch",
-    "german",
-    "nederlands",
-    "dutch",
-    "english",
-    "englisch"
-  ];
-
-  const lines = text
-    .replace(/\r/g, "")
-    .split("\n")
-    .map(line => line.trim())
-    .filter(Boolean);
-
-  while (
-    lines.length &&
-    headerWords.includes(lines[0].toLowerCase())
-  ) {
-    lines.shift();
-  }
-
-  const isNumber = line =>
-    /^(hook\s*\d+|cta|intro|outro|\d+(?:\.\d+)?)\.?$/i.test(line);
-
-  const parsedRows = [];
-  let currentRow = null;
-
-  lines.forEach(line => {
-    if (isNumber(line)) {
-      if (currentRow) parsedRows.push(currentRow);
-
-      currentRow = {
-        nummer: line,
-        script: "",
-        scriptEn: ""
-      };
-    } else if (currentRow) {
-      if (/^(voice ?over|vo|v\.o\.?)$/i.test(line)) return;
-
-      currentRow.script +=
-        (currentRow.script ? " " : "") + line;
-    }
-  });
-
-  if (currentRow) parsedRows.push(currentRow);
-
-  return parsedRows;
-}
-
-function renderTable() {
-  if (!rows.length) {
-    $("tableWrapper").innerHTML = "";
-    $("exports").style.display = "none";
-    return;
-  }
-
-  const sourceName = currentLanguage().name;
-
-  let html = `
-    <table>
-      <thead>
-        <tr>
-          <th>Nummer</th>
-          <th>${sourceName}</th>
-          <th>English</th>
-        </tr>
-      </thead>
-      <tbody>
-  `;
-
-  rows.forEach((row, index) => {
-    html += `
-      <tr>
-        <td contenteditable
-            data-index="${index}"
-            data-key="nummer">${escapeHtml(row.nummer)}</td>
-
-        <td contenteditable
-            data-index="${index}"
-            data-key="script">${escapeHtml(row.script)}</td>
-
-        <td contenteditable
-            class="english"
-            data-index="${index}"
-            data-key="scriptEn">${escapeHtml(row.scriptEn)}</td>
-      </tr>
-    `;
-  });
-
-  html += "</tbody></table>";
-
-  $("tableWrapper").innerHTML = html;
-  $("exports").style.display = "flex";
-
-  document
-    .querySelectorAll("td[contenteditable]")
-    .forEach(cell => {
-      cell.addEventListener("input", () => {
-        rows[cell.dataset.index][cell.dataset.key] =
-          cell.innerText;
-      });
-    });
-}
-
-function splitText(text, maximumLength = 480) {
-  if (text.length <= maximumLength) return [text];
-
-  const sentences =
-    text.match(/[^.!?]+[.!?]*\s*/g) || [text];
-
-  const chunks = [];
-  let buffer = "";
-
-  sentences.forEach(sentence => {
-    if ((buffer + sentence).length > maximumLength) {
-      if (buffer) chunks.push(buffer.trim());
-      buffer = sentence;
-    } else {
-      buffer += sentence;
-    }
-  });
-
-  if (buffer) chunks.push(buffer.trim());
-
-  return chunks;
-}
-
-async function translateText(text) {
-  text = String(text || "").trim();
-  if (!text) return "";
-
-  const translatedParts = [];
-
-  for (const chunk of splitText(text)) {
-    const pair =
-      currentLanguage().apiCode + "|en";
-
-    const url =
-      "https://api.mymemory.translated.net/get?q=" +
-      encodeURIComponent(chunk) +
-      "&langpair=" +
-      encodeURIComponent(pair);
-
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      throw new Error("The translation service could not be reached.");
-    }
-
-    const data = await response.json();
-
-    const translation =
-      data?.responseData?.translatedText || chunk;
-
-    if (
-      /MYMEMORY WARNING|QUERY LENGTH LIMIT/i.test(translation)
-    ) {
-      throw new Error(
-        "The free translation limit was reached. Try again later."
-      );
-    }
-
-    translatedParts.push(translation);
-  }
-
-  return translatedParts.join(" ");
-}
-
-async function translateAll() {
-  if (!rows.length) return;
-
-  const selectedLanguage = sourceLanguage;
-
-  $("translateBtn").disabled = true;
-  $("parseBtn").disabled = true;
-  $("progress").style.display = "block";
-
-  try {
-    for (let index = 0; index < rows.length; index++) {
-      if (sourceLanguage !== selectedLanguage) {
-        throw new Error(
-          "The language changed during translation. Please try again."
-        );
-      }
-
-      rows[index].scriptEn =
-        await translateText(rows[index].script);
-
-      const percentage =
-        Math.round(((index + 1) / rows.length) * 100);
-
-      $("progress").firstElementChild.style.width =
-        percentage + "%";
-
-      showStatus("Translating… " + percentage + "%");
-
-      renderTable();
-    }
-
-    saveHistory();
-
-    showStatus(
-      "✓ " + currentLanguage().name +
-      " → English translation complete.",
-      "ok"
-    );
-  } catch (error) {
-    showStatus("Error: " + error.message, "error");
-  } finally {
-    $("translateBtn").disabled = false;
-    $("parseBtn").disabled = false;
-
-    setTimeout(() => {
-      $("progress").style.display = "none";
-    }, 700);
-  }
-}
-
-function copyPlainText(text) {
-  const textarea = document.createElement("textarea");
-
-  textarea.value = text;
-  textarea.style.position = "fixed";
-  textarea.style.left = "-9999px";
-
-  document.body.appendChild(textarea);
-  textarea.select();
-
-  const copied = document.execCommand("copy");
-
-  document.body.removeChild(textarea);
-
-  return copied;
-}
-
-function tableAsTsv() {
-  const header = [
-    "Nummer",
-    currentLanguage().name,
-    "English"
-  ].join("\t");
-
-  const body = rows
-    .map(row => [
-      row.nummer,
-      row.script,
-      row.scriptEn
-    ].join("\t"))
-    .join("\n");
-
-  return header + "\n" + body;
-}
-
-function copyTable() {
-  if (!rows.length) return;
-
-  const table = $("tableWrapper").querySelector("table");
-  const selection = window.getSelection();
-  const range = document.createRange();
-
-  range.selectNodeContents(table);
-  selection.removeAllRanges();
-  selection.addRange(range);
-
-  const copied = document.execCommand("copy");
-
-  selection.removeAllRanges();
-
-  showStatus(
-    copied
-      ? "✓ Table copied. Paste it into Google Docs."
-      : "Copy failed.",
-    copied ? "ok" : "error"
-  );
-}
-
-function copyForElevenLabs() {
-  const text = rows
-    .map(row => row.script.trim())
-    .filter(Boolean)
-    .join("\n\n");
-
-  if (!text) {
-    showStatus(
-      "No " + currentLanguage().name + " text to copy.",
-      "error"
-    );
-    return;
-  }
-
-  const copied = copyPlainText(text);
-
-  showStatus(
-    copied
-      ? "✓ " + currentLanguage().name +
-        " script copied for ElevenLabs."
-      : "Copy failed.",
-    copied ? "ok" : "error"
-  );
-}
-
-function srtTime(totalSeconds) {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = Math.floor(totalSeconds % 60);
-
-  const pad = number =>
-    String(number).padStart(2, "0");
-
-  return (
-    pad(hours) + ":" +
-    pad(minutes) + ":" +
-    pad(seconds) + ",000"
-  );
-}
-
-function generateSrt() {
-  let subtitleNumber = 1;
-  let startSeconds = 0;
-  const output = [];
-
-  rows.forEach(row => {
-    const text = row.script.trim();
-    if (!text) return;
-
-    output.push(
-      subtitleNumber + "\n" +
-      srtTime(startSeconds) + " --> " +
-      srtTime(startSeconds + 20) + "\n" +
-      text
-    );
-
-    subtitleNumber++;
-    startSeconds += 20;
-  });
-
-  if (!output.length) {
-    showStatus(
-      "No " + currentLanguage().name +
-      " text available for subtitles.",
-      "error"
-    );
-    return;
-  }
-
-  const blob = new Blob(
-    [output.join("\n\n") + "\n"],
-    { type: "application/x-subrip;charset=utf-8" }
-  );
-
-  const link = document.createElement("a");
-
-  link.href = URL.createObjectURL(blob);
-  link.download =
-    currentLanguage().apiCode + "-script-" +
-    Date.now() + ".srt";
-
-  link.click();
-
-  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-
-  showStatus("✓ SRT downloaded.", "ok");
-}
-
-function saveHistory() {
-  const history = JSON.parse(
-    localStorage.getItem("translatorHistory") || "[]"
-  );
-
-  history.unshift({
-    id: Date.now(),
-    sourceLanguage,
-    rows: JSON.parse(JSON.stringify(rows))
-  });
-
-  localStorage.setItem(
-    "translatorHistory",
-    JSON.stringify(history.slice(0, 50))
-  );
-}
-
-$("languageSelect").addEventListener("change", event => {
-  sourceLanguage = event.target.value;
-
-  if (rows.length) {
-    rows.forEach(row => {
-      row.scriptEn = "";
-    });
-
-    showStatus(
-      "Language changed to " +
-      currentLanguage().name +
-      ". Translate again to refresh the English column."
-    );
-  }
-
-  updateLanguageInterface();
-});
-
-$("parseBtn").addEventListener("click", () => {
-  rows = parseScript($("input").value);
-
-  if (!rows.length) {
-    showStatus(
-      "No rows were found. Make sure each row starts with a number, Hook, or CTA.",
-      "error"
-    );
-    return;
-  }
-
-  renderTable();
-  $("translateBtn").disabled = false;
-
-  showStatus(
-    "✓ Parsed " + rows.length + " " +
-    currentLanguage().name + " rows.",
-    "ok"
-  );
-});
-
-$("translateBtn").addEventListener("click", translateAll);
-
-$("sampleBtn").addEventListener("click", () => {
-  $("input").value = currentLanguage().sample;
-  showStatus(
-    currentLanguage().name +
-    " sample loaded. Click Parse script."
-  );
-});
-
-$("clearBtn").addEventListener("click", () => {
-  $("input").value = "";
-  rows = [];
-
-  renderTable();
-
-  $("translateBtn").disabled = true;
-  showStatus("");
-});
-
-$("copyTableBtn").addEventListener("click", copyTable);
-
-$("copyVoiceBtn").addEventListener(
-  "click",
-  copyForElevenLabs
-);
-
-$("copyTsvBtn").addEventListener("click", () => {
-  const copied = copyPlainText(tableAsTsv());
-
-  showStatus(
-    copied ? "✓ Three-column TSV copied." : "Copy failed.",
-    copied ? "ok" : "error"
-  );
-});
-
-$("srtBtn").addEventListener("click", generateSrt);
-
-$("printBtn").addEventListener("click", () => {
-  window.print();
-});
-
-function applyTheme(theme) {
-  if (theme === "light") {
-    document.documentElement.dataset.theme = "light";
-    $("themeBtn").textContent = "☀️ Light";
-  } else {
-    delete document.documentElement.dataset.theme;
-    $("themeBtn").textContent = "🌙 Dark";
-  }
-
-  localStorage.setItem("translatorTheme", theme);
-}
-
-$("themeBtn").addEventListener("click", () => {
-  const light =
-    document.documentElement.dataset.theme === "light";
-
-  applyTheme(light ? "dark" : "light");
-});
-
-applyTheme(
-  localStorage.getItem("translatorTheme") || "dark"
-);
-
-updateLanguageInterface();
-</script>
-</body>
-</html>
+Type
+Script

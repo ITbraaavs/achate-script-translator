@@ -1,414 +1,272 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Script Translator — German → English</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Script Translator — Dutch/German → English</title>
+
 <style>
-  :root{
-    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
-    --text:#e8eaed; --muted:#9aa3b2; --accent:#4f8cff; --accent2:#3ad29f;
-    --warn:#ffb84d; --danger:#ff5f6d;
-    --btnhover:#222838; --focus:#202636; --encell:#15211b;
-    --greentext:#06281c;
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel2: #1e222b;
+    --line: #2a2f3a;
+    --text: #e8eaed;
+    --muted: #9aa3b2;
+    --accent: #4f8cff;
+    --green: #3ad29f;
+    --danger: #ff5f6d;
+    --english: #15211b;
   }
-  :root[data-theme="light"]{
-    --bg:#ffffff; --panel:#f5f7fa; --panel2:#eaeef4; --line:#d4dae3;
-    --text:#1b2330; --muted:#5d6b80; --accent:#2563eb; --accent2:#0d9488;
-    --warn:#b45309; --danger:#dc2626;
-    --btnhover:#e2e8f2; --focus:#dbe6ff; --encell:#edfaf4;
-    --greentext:#ffffff;
+
+  :root[data-theme="light"] {
+    --bg: #fff;
+    --panel: #f5f7fa;
+    --panel2: #eaeef4;
+    --line: #d4dae3;
+    --text: #1b2330;
+    --muted: #5d6b80;
+    --accent: #2563eb;
+    --green: #0d9488;
+    --danger: #dc2626;
+    --english: #edfaf4;
   }
-  *{box-sizing:border-box}
-  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
-  header{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;
-    position:sticky;top:0;background:var(--bg);z-index:5}
-  header h1{font-size:18px;margin:0;font-weight:650}
-  header .sub{color:var(--muted);font-size:12.5px}
-  .layout{display:flex;min-height:calc(100vh - 61px)}
-  .main{flex:1;padding:24px;min-width:0}
-  .side{width:280px;border-left:1px solid var(--line);background:var(--panel);padding:18px;overflow:auto}
-  textarea{width:100%;min-height:160px;background:var(--panel);color:var(--text);border:1px solid var(--line);
-    border-radius:10px;padding:14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;resize:vertical}
-  .row{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
-  button{background:var(--panel2);color:var(--text);border:1px solid var(--line);padding:9px 16px;border-radius:9px;
-    cursor:pointer;font-size:13px;font-weight:550;transition:.15s}
-  button:hover{border-color:var(--accent);background:var(--btnhover)}
-  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-  button.primary:hover{filter:brightness(1.08)}
-  button.green{background:var(--accent2);border-color:var(--accent2);color:var(--greentext)}
-  button:disabled{opacity:.45;cursor:not-allowed}
-  .hint{color:var(--muted);font-size:12px;margin:6px 0 0}
-  table{border-collapse:collapse;width:100%;margin-top:14px;background:var(--panel);border-radius:10px;overflow:hidden}
-  th,td{border:1px solid var(--line);padding:9px 11px;vertical-align:top;text-align:left}
-  th{background:var(--panel2);font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);position:sticky;top:0;z-index:1}
-  td[contenteditable]{outline:none}
-  td[contenteditable]:focus{background:var(--focus);box-shadow:inset 0 0 0 2px var(--accent)}
-  td.en{background:var(--encell)}
-  td.num{font-weight:650;white-space:nowrap;color:var(--accent)}
-  .tablewrap{overflow:auto;border-radius:10px;border:1px solid var(--line)}
-  .status{font-size:12.5px;color:var(--muted);min-height:18px}
-  .status.err{color:var(--danger)}
-  .status.ok{color:var(--accent2)}
-  .bar{height:6px;background:var(--panel2);border-radius:6px;overflow:hidden;margin:8px 0;display:none}
-  .bar>div{height:100%;background:var(--accent);width:0;transition:width .2s}
-  h3{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:0 0 10px}
-  .hist{list-style:none;padding:0;margin:0}
-  .hist li{padding:10px 12px;border:1px solid var(--line);border-radius:9px;margin-bottom:8px;cursor:pointer;background:var(--panel2)}
-  .hist li:hover{border-color:var(--accent)}
-  .hist .t{font-weight:600;font-size:13px}
-  .hist .d{color:var(--muted);font-size:11.5px;margin-top:2px}
-  .hist .x{float:right;color:var(--muted);font-size:12px;border:none;background:none;padding:0 4px}
-  .hist .x:hover{color:var(--danger)}
-  .empty{color:var(--muted);font-size:12.5px}
-  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0}
-  .pill{font-size:11.5px;color:var(--muted);border:1px solid var(--line);padding:3px 9px;border-radius:20px}
-  a.link{color:var(--accent)}
-  footer{padding:14px 24px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;text-align:center}
-  footer strong{color:var(--text);font-weight:600}
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  header h1 {
+    margin: 0;
+    font-size: 18px;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  main {
+    max-width: 1400px;
+    margin: auto;
+    padding: 24px;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 170px;
+    padding: 14px;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    resize: vertical;
+    font-family: ui-monospace, monospace;
+  }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 14px 0;
+  }
+
+  button,
+  select {
+    padding: 9px 14px;
+    color: var(--text);
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  button:hover,
+  select:hover {
+    border-color: var(--accent);
+  }
+
+  button.primary {
+    color: white;
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  button.green {
+    color: #06281c;
+    background: var(--green);
+    border-color: var(--green);
+  }
+
+  button:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+  }
+
+  #themeBtn {
+    margin-left: auto;
+  }
+
+  .hint,
+  .status {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .status {
+    min-height: 20px;
+    margin: 8px 0;
+  }
+
+  .status.ok { color: var(--green); }
+  .status.error { color: var(--danger); }
+
+  .progress {
+    display: none;
+    height: 6px;
+    overflow: hidden;
+    background: var(--panel2);
+    border-radius: 6px;
+  }
+
+  .progress div {
+    width: 0;
+    height: 100%;
+    background: var(--accent);
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--panel);
+  }
+
+  th,
+  td {
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+    border: 1px solid var(--line);
+  }
+
+  th {
+    color: var(--muted);
+    background: var(--panel2);
+    font-size: 12px;
+    text-transform: uppercase;
+  }
+
+  th:first-child,
+  td:first-child {
+    width: 110px;
+  }
+
+  td:first-child {
+    color: var(--accent);
+    font-weight: 650;
+    white-space: nowrap;
+  }
+
+  td.english {
+    background: var(--english);
+  }
+
+  td[contenteditable]:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+
+  .exports {
+    display: none;
+  }
+
+  footer {
+    margin-top: 30px;
+    padding: 16px;
+    color: var(--muted);
+    text-align: center;
+    border-top: 1px solid var(--line);
+  }
 </style>
 </head>
+
 <body>
 <header>
   <h1>📝 Script Translator</h1>
-  <span class="sub">German → English · paste a script, get a clean 3-column table</span>
-  <button id="themeBtn" style="margin-left:auto" title="Switch between dark and light mode">🌙 Dark</button>
+  <span class="subtitle" id="subtitle"></span>
+  <button id="themeBtn">🌙 Dark</button>
 </header>
 
-<div class="layout">
-  <div class="main">
-    <textarea id="input" placeholder="Paste your German script here (Nummer / Deutsch layout)…"></textarea>
-    <div class="row">
-      <button class="primary" id="parseBtn">① Parse script</button>
-      <button class="green" id="translateBtn" disabled>② Translate to English</button>
-      <button id="sampleBtn">Load sample</button>
-      <button id="clearBtn">Clear</button>
-    </div>
-    <p class="hint">Every cell is editable — fix any mis-parsed text before translating or exporting.</p>
+<main>
+  <textarea id="input"></textarea>
 
-    <div class="bar" id="bar"><div></div></div>
-    <div class="status" id="status"></div>
+  <div class="toolbar">
+    <select id="languageSelect" aria-label="Source language">
+      <option value="de">German → English</option>
+      <option value="nl">Dutch → English</option>
+    </select>
 
-    <div class="toolbar" id="exportBar" style="display:none">
-      <span class="pill" id="rowCount">0 rows</span>
-      <button id="copyBtn">📋 Copy for Google Docs</button>
-      <button id="elevenBtn" class="green">🎙️ Copy German for ElevenLabs</button>
-      <button id="copyTsvBtn">Copy as TSV</button>
-      <button id="srtBtn">🎬 Generate SRT</button>
-      <button id="pdfBtn">⬇️ Download PDF</button>
-      <button id="saveBtn">💾 Re-save edits</button>
-    </div>
-
-    <div class="tablewrap" id="tableWrap"></div>
+    <button class="primary" id="parseBtn">① Parse script</button>
+    <button class="green" id="translateBtn" disabled>
+      ② Translate to English
+    </button>
+    <button id="sampleBtn">Load sample</button>
+    <button id="clearBtn">Clear</button>
   </div>
 
-  <aside class="side">
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <h3>History</h3>
-      <button id="clearHistBtn" style="padding:4px 10px;font-size:11px" title="Delete all saved translations">Clear all</button>
-    </div>
-    <p class="hint" style="margin:0 0 12px">Saved automatically after each translation. Click one to reopen, or ✕ to delete.</p>
-    <ul class="hist" id="histList"></ul>
-    <p class="empty" id="histEmpty">No saved translations yet.</p>
-  </aside>
-</div>
+  <p class="hint">
+    The result has three editable columns: Nummer, source language, and English.
+  </p>
+
+  <div class="progress" id="progress">
+    <div></div>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div class="toolbar exports" id="exports">
+    <button id="copyTableBtn">📋 Copy table</button>
+    <button id="copyVoiceBtn" class="green">🎙️ Copy for ElevenLabs</button>
+    <button id="copyTsvBtn">Copy as TSV</button>
+    <button id="srtBtn">🎬 Generate SRT</button>
+    <button id="printBtn">⬇️ Save as PDF</button>
+  </div>
+
+  <div class="table-wrapper" id="tableWrapper"></div>
+</main>
 
 <footer>Created by <strong>christinebravo</strong></footer>
 
 <script>
 const $ = id => document.getElementById(id);
-let rows = []; // {nummer, script, scriptEn}
 
-/* ---------- Parsing ---------- */
-function parseScript(text){
-  const linesRaw = text.replace(/\r/g,'').split('\n');
-  const lines = linesRaw.map(l=>l.trim()).filter(l=>l.length>0);
-
-  // Drop leading column headings if present.
-  const headerWords = ['nummer','number','deutsch','german','englisch','english','script'];
-  let start = 0;
-  for(let i=0;i<Math.min(4,lines.length);i++){
-    if(headerWords.includes(lines[i].toLowerCase())) start = i+1;
-  }
-
-  const isNummer = l => /^(hook\s*\d+|cta|intro|outro|\d+(\.\d+)?)\.?$/i.test(l);
-  const out = [];
-  let cur = null;
-  for(let i=start;i<lines.length;i++){
-    const l = lines[i];
-    if(isNummer(l)){
-      if(cur) out.push(cur);
-      cur = {nummer:l, body:[]};
-    } else if(cur){
-      cur.body.push(l);
-    }
-  }
-  if(cur) out.push(cur);
-
-  // Each number starts one row. Join wrapped lines into a single German cell.
-  return out.map(r=>{
-    let body = r.body.slice();
-    if(body.length && /^(voice ?over|vo|v\.o\.?)$/i.test(body[0])){
-      body.shift();
-    }
-    return {nummer:r.nummer, script:body.join(' '), scriptEn:''};
-  });
-}
-
-/* ---------- Render ---------- */
-function render(){
-  if(!rows.length){ $('tableWrap').innerHTML=''; $('exportBar').style.display='none'; return; }
-  const cols = [
-    ['nummer','Nummer','num'],
-    ['script','German',''],
-    ['scriptEn','English','en'],
-  ];
-  let html = '<table><thead><tr>'+cols.map(c=>`<th>${c[1]}</th>`).join('')+'</tr></thead><tbody>';
-  rows.forEach((r,ri)=>{
-    html += '<tr>'+cols.map(c=>{
-      const cls = c[2]?` class="${c[2]}"`:'';
-      return `<td${cls} contenteditable data-r="${ri}" data-k="${c[0]}">${escapeHtml(r[c[0]]||'')}</td>`;
-    }).join('')+'</tr>';
-  });
-  html += '</tbody></table>';
-  $('tableWrap').innerHTML = html;
-  $('tableWrap').querySelectorAll('td[contenteditable]').forEach(td=>{
-    td.addEventListener('input',()=>{ rows[td.dataset.r][td.dataset.k] = td.innerText; });
-  });
-  $('exportBar').style.display='flex';
-  $('rowCount').textContent = rows.length+' rows';
-}
-function escapeHtml(s){return s.replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
-
-/* ---------- Translation (MyMemory free API, DE→EN) ---------- */
-async function translateText(text){
-  text = (text||'').trim();
-  if(!text) return '';
-  // split into <=480 char chunks on sentence boundaries to respect API limits
-  const chunks = chunkText(text, 480);
-  const parts = [];
-  for(const ch of chunks){
-    const url = 'https://api.mymemory.translated.net/get?q='+encodeURIComponent(ch)+'&langpair=de|en';
-    const res = await fetch(url);
-    const data = await res.json();
-    let t = data && data.responseData ? data.responseData.translatedText : ch;
-    if(/MYMEMORY WARNING|QUERY LENGTH LIMIT/i.test(t)) throw new Error('Translation API limit reached. Try again later.');
-    parts.push(t);
-  }
-  return parts.join(' ');
-}
-function chunkText(text, max){
-  if(text.length<=max) return [text];
-  const sentences = text.match(/[^.!?]+[.!?]*\s*/g) || [text];
-  const out=[]; let buf='';
-  for(const s of sentences){
-    if((buf+s).length>max){ if(buf)out.push(buf.trim()); buf=s; }
-    else buf+=s;
-  }
-  if(buf)out.push(buf.trim());
-  return out;
-}
-
-async function translateAll(){
-  setBusy(true);
-  const bar=$('bar'); bar.style.display='block'; bar.firstElementChild.style.width='0';
-  status('Translating…');
-  const total = rows.length; let done=0;
-  try{
-    for(let i=0;i<rows.length;i++){
-      rows[i].scriptEn = await translateText(rows[i].script); done++; progress(done,total);
-      render();
-    }
-    saveCurrent(true); // auto-save to history
-    status('✓ Translation complete — '+rows.length+' rows · saved to history.','ok');
-  }catch(e){
-    status('Error: '+e.message,'err');
-  }finally{
-    setBusy(false); setTimeout(()=>bar.style.display='none',800);
-  }
-}
-function progress(d,t){ $('bar').firstElementChild.style.width=(d/t*100)+'%'; status('Translating… '+Math.round(d/t*100)+'%'); }
-function setBusy(b){ ['parseBtn','translateBtn','sampleBtn'].forEach(id=>$(id).disabled=b); }
-function status(msg,cls){ const s=$('status'); s.textContent=msg||''; s.className='status'+(cls?' '+cls:''); }
-
-/* ---------- Export ---------- */
-function buildHtmlTable(){
-  const cols=[['nummer','Nummer'],['script','German'],['scriptEn','English']];
-  let h='<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse"><thead><tr>'+
-    cols.map(c=>`<th style="background:#eee">${c[1]}</th>`).join('')+'</tr></thead><tbody>';
-  rows.forEach(r=>{ h+='<tr>'+cols.map(c=>`<td>${escapeHtml(r[c[0]]||'')}</td>`).join('')+'</tr>'; });
-  return h+'</tbody></table>';
-}
-async function copyForDocs(){
-  if(!rows.length){ status('Nothing to copy yet.','err'); return; }
-  // Method that works even on file:// — select a real rendered table and copy it.
-  if(copyTableViaSelection()){
-    status('✓ Copied the full table! Paste into Google Docs (Cmd+V) — it becomes a table.','ok');
-    return;
-  }
-  // Fallback to async clipboard API (works on https/localhost)
-  const html=buildHtmlTable();
-  const plain=rows.map(r=>[r.nummer,r.script,r.scriptEn].join('\t')).join('\n');
-  try{
-    await navigator.clipboard.write([new ClipboardItem({
-      'text/html':new Blob([html],{type:'text/html'}),
-      'text/plain':new Blob([plain],{type:'text/plain'})
-    })]);
-    status('✓ Copied the full table! Paste into Google Docs — it becomes a table.','ok');
-  }catch(e){ copyTsv(); }
-}
-function copyTableViaSelection(){
-  try{
-    const holder=document.createElement('div');
-    holder.style.cssText='position:fixed;left:-9999px;top:0;white-space:normal;';
-    holder.innerHTML=buildHtmlTable();
-    document.body.appendChild(holder);
-    const range=document.createRange();
-    range.selectNodeContents(holder.firstChild);
-    const sel=window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-    const ok=document.execCommand('copy');
-    sel.removeAllRanges();
-    document.body.removeChild(holder);
-    return ok;
-  }catch(e){ return false; }
-}
-function copyPlainText(text){
-  // works on file:// where navigator.clipboard may be blocked
-  try{
-    const ta=document.createElement('textarea');
-    ta.value=text; ta.style.cssText='position:fixed;left:-9999px;top:0;';
-    document.body.appendChild(ta); ta.focus(); ta.select();
-    const ok=document.execCommand('copy');
-    document.body.removeChild(ta);
-    if(ok) return true;
-  }catch(e){}
-  if(navigator.clipboard){ navigator.clipboard.writeText(text); return true; }
-  return false;
-}
-function copyTsv(){
-  const header=['Nummer','German','English'].join('\t');
-  const body=rows.map(r=>[r.nummer,r.script,r.scriptEn].join('\t')).join('\n');
-  if(copyPlainText(header+'\n'+body)) status('✓ Copied as TSV (tab-separated).','ok');
-  else status('Copy failed — try again.','err');
-}
-function copyForEleven(){
-  const text=rows.map(r=>(r.script||'').trim()).filter(Boolean).join('\n\n');
-  if(!text){ status('No German text to copy.','err'); return; }
-  if(copyPlainText(text)) status('✓ Copied German script — paste into ElevenLabs. '+rows.filter(r=>(r.script||'').trim()).length+' lines.','ok');
-  else status('Copy failed — try again.','err');
-}
-function downloadPdf(){
-  const { jsPDF }=window.jspdf;
-  const doc=new jsPDF({orientation:'landscape',unit:'pt',format:'a4'});
-  doc.setFontSize(15); doc.text('Script Translation — German → English',40,40);
-  doc.setFontSize(9); doc.setTextColor(120); doc.text(new Date().toLocaleString()+'  ·  Created by christinebravo',40,56);
-  doc.autoTable({
-    startY:72,
-    head:[['Nummer','German','English']],
-    body:rows.map(r=>[r.nummer,r.script,r.scriptEn]),
-    styles:{fontSize:8,cellPadding:4,valign:'top',overflow:'linebreak'},
-    headStyles:{fillColor:[79,140,255],textColor:255},
-    columnStyles:{0:{cellWidth:60},1:{cellWidth:360},2:{cellWidth:360}},
-    alternateRowStyles:{fillColor:[245,247,250]}
-  });
-  doc.save('script-translation-'+Date.now()+'.pdf');
-  status('✓ PDF downloaded.','ok');
-}
-
-/* ---------- SRT export (German, 20-second cues, 2 lines × 15 chars) ---------- */
-const SRT_SECONDS = 20;   // each German row spans a 20-second range
-const SRT_MAXCHARS = 15;  // max characters per subtitle line
-const SRT_MAXLINES = 2;   // max lines per subtitle cue
-function srtTime(totalSeconds){
-  const h=Math.floor(totalSeconds/3600);
-  const m=Math.floor((totalSeconds%3600)/60);
-  const s=Math.floor(totalSeconds%60);
-  const ms=Math.round((totalSeconds-Math.floor(totalSeconds))*1000);
-  const pad=(n,l=2)=>String(n).padStart(l,'0');
-  return `${pad(h)}:${pad(m)}:${pad(s)},${pad(ms,3)}`;
-}
-// word-wrap text into lines of at most maxChars — never splits a word.
-// A word longer than maxChars stays whole on its own line (overflowing the limit).
-function wrapToLines(text, maxChars){
-  const lines=[]; let cur='';
-  text.split(/\s+/).filter(Boolean).forEach(w=>{
-    if(!cur) cur=w;
-    else if((cur+' '+w).length<=maxChars) cur+=' '+w;
-    else { lines.push(cur); cur=w; }
-  });
-  if(cur) lines.push(cur);
-  return lines;
-}
-function buildSrt(){
-  let idx=0, t=0, out=[];
-  rows.forEach(r=>{
-    const text=(r.script||'').trim();
-    if(!text) return;
-    // wrap to ≤15-char lines, then group every 2 lines into one cue
-    const lines=wrapToLines(text, SRT_MAXCHARS);
-    const cues=[];
-    for(let i=0;i<lines.length;i+=SRT_MAXLINES) cues.push(lines.slice(i,i+SRT_MAXLINES).join('\n'));
-    // share this row's 20-second window evenly across its cues
-    const per=SRT_SECONDS/cues.length;
-    cues.forEach((cueText,ci)=>{
-      idx++;
-      const start=srtTime(t+ci*per), end=srtTime(t+(ci+1)*per);
-      out.push(idx+'\n'+start+' --> '+end+'\n'+cueText);
-    });
-    t+=SRT_SECONDS;
-  });
-  return out.join('\n\n')+'\n';
-}
-function downloadSrt(){
-  if(!rows.filter(r=>(r.script||'').trim()).length){ status('No German text to build subtitles from.','err'); return; }
-  const srt=buildSrt();
-  const cues=srt.trim()?srt.trim().split('\n\n').length:0;
-  const blob=new Blob([srt],{type:'application/x-subrip;charset=utf-8'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='script-'+Date.now()+'.srt';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  status('✓ SRT downloaded — '+cues+' subtitles, max '+SRT_MAXLINES+' lines × '+SRT_MAXCHARS+' chars (German).','ok');
-}
-
-/* ---------- History (localStorage) ---------- */
-const HKEY='scriptTranslatorHistory';
-function loadHist(){ try{return JSON.parse(localStorage.getItem(HKEY))||[];}catch(e){return [];} }
-function saveHist(list){ localStorage.setItem(HKEY,JSON.stringify(list)); }
-function saveCurrent(silent){
-  if(!rows.length) return;
-  const list=loadHist();
-  const title=(rows[0].script||rows[0].nummer||'Untitled').slice(0,40);
-  list.unshift({id:Date.now(),title,date:new Date().toLocaleString(),rows:JSON.parse(JSON.stringify(rows))});
-  saveHist(list.slice(0,50)); renderHist();
-  if(!silent) status('✓ Saved to history.','ok');
-}
-function renderHist(){
-  const list=loadHist(); const ul=$('histList');
-  $('histEmpty').style.display=list.length?'none':'block';
-  ul.innerHTML=list.map(h=>`<li data-id="${h.id}"><button class="x" data-del="${h.id}">✕</button>
-    <div class="t">${escapeHtml(h.title)}</div><div class="d">${h.date} · ${h.rows.length} rows</div></li>`).join('');
-  ul.querySelectorAll('li').forEach(li=>{
-    li.addEventListener('click',e=>{
-      if(e.target.dataset.del) return;
-      const h=loadHist().find(x=>x.id==li.dataset.id);
-      if(h){ rows=JSON.parse(JSON.stringify(h.rows)); render(); status('Loaded from history.','ok'); window.scrollTo(0,0); }
-    });
-  });
-  ul.querySelectorAll('[data-del]').forEach(b=>{
-    b.addEventListener('click',e=>{ e.stopPropagation();
-      saveHist(loadHist().filter(x=>x.id!=b.dataset.del)); renderHist(); });
-  });
-}
-
-/* ---------- Sample ---------- */
-const SAMPLE=`Nummer
+const LANGUAGES = {
+  de: {
+    name: "German",
+    nativeName: "Deutsch",
+    apiCode: "de",
+    sample: `Nummer
 Deutsch
 Hook 1
 Keine Zeit, den Grill zu reinigen? Dann brauchst du das diesen Sommer.
@@ -416,47 +274,564 @@ Hook 2
 Jeder Grillfan sollte das wissen.
 1.1
 Die langen Sommerabende mit Freunden im Garten sind wunderbar.
-1.3
+1.2
 Deshalb benutze ich den kabellosen Hochdruckreiniger von Achaté.
 CTA
-Kaufe den kabellosen Hochdruckreiniger jetzt im Sommerschlussverkauf.`;
+Kaufe den kabellosen Hochdruckreiniger jetzt im Sommerschlussverkauf.`
+  },
 
-/* ---------- Wire up ---------- */
-$('parseBtn').onclick=()=>{
-  rows=parseScript($('input').value);
-  if(!rows.length){ status('Could not find any rows. Check the layout.','err'); return; }
-  render(); $('translateBtn').disabled=false;
-  status('Parsed '+rows.length+' rows. Edit if needed, then translate.','ok');
-};
-$('translateBtn').onclick=translateAll;
-$('sampleBtn').onclick=()=>{ $('input').value=SAMPLE; status('Sample loaded — click Parse.'); };
-$('clearBtn').onclick=()=>{ $('input').value=''; rows=[]; render(); $('translateBtn').disabled=true; status(''); };
-$('copyBtn').onclick=copyForDocs;
-$('elevenBtn').onclick=copyForEleven;
-$('copyTsvBtn').onclick=copyTsv;
-$('srtBtn').onclick=downloadSrt;
-$('pdfBtn').onclick=downloadPdf;
-$('saveBtn').onclick=()=>saveCurrent(false);
-$('clearHistBtn').onclick=()=>{
-  if(!loadHist().length){ status('History is already empty.'); return; }
-  if(confirm('Delete ALL saved translations? This cannot be undone.')){
-    saveHist([]); renderHist(); status('History cleared.','ok');
+  nl: {
+    name: "Dutch",
+    nativeName: "Nederlands",
+    apiCode: "nl",
+    sample: `Nummer
+Nederlands
+Hook 1
+Geen tijd om de BBQ schoon te maken? Dan heb je dit deze zomer nodig.
+Hook 2
+Elke BBQ-liefhebber moet dit weten.
+1.1
+Die lange zomeravonden met vrienden in de tuin zijn heerlijk.
+1.2
+Daarom gebruik ik de draadloze hogedrukreiniger van Achaté.
+CTA
+Shop de draadloze hogedrukreiniger nu tijdens de zomersale.`
   }
 };
-renderHist();
 
-/* ---------- Theme ---------- */
-function applyTheme(t){
-  if(t==='light') document.documentElement.setAttribute('data-theme','light');
-  else document.documentElement.removeAttribute('data-theme');
-  $('themeBtn').textContent = t==='light' ? '☀️ Light' : '🌙 Dark';
-  localStorage.setItem('scriptTranslatorTheme', t);
+let rows = [];
+let sourceLanguage =
+  localStorage.getItem("translatorSourceLanguage") || "de";
+
+function currentLanguage() {
+  return LANGUAGES[sourceLanguage];
 }
-$('themeBtn').onclick=()=>{
-  const cur=document.documentElement.getAttribute('data-theme')==='light'?'light':'dark';
-  applyTheme(cur==='light'?'dark':'light');
-};
-applyTheme(localStorage.getItem('scriptTranslatorTheme')||'dark');
+
+function escapeHtml(value) {
+  return String(value || "").replace(/[&<>]/g, character => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;"
+  })[character]);
+}
+
+function showStatus(message, type = "") {
+  $("status").textContent = message;
+  $("status").className = "status" + (type ? " " + type : "");
+}
+
+function updateLanguageInterface() {
+  const language = currentLanguage();
+
+  $("languageSelect").value = sourceLanguage;
+  $("subtitle").textContent =
+    language.name + " → English · three-column translation";
+
+  $("input").placeholder =
+    "Paste your " + language.name +
+    " script here (Nummer / " + language.nativeName + ")…";
+
+  $("copyVoiceBtn").textContent =
+    "🎙️ Copy " + language.name + " for ElevenLabs";
+
+  localStorage.setItem("translatorSourceLanguage", sourceLanguage);
+
+  renderTable();
+}
+
+function parseScript(text) {
+  const language = currentLanguage();
+
+  const headerWords = [
+    "nummer",
+    "number",
+    "script",
+    "deutsch",
+    "german",
+    "nederlands",
+    "dutch",
+    "english",
+    "englisch"
+  ];
+
+  const lines = text
+    .replace(/\r/g, "")
+    .split("\n")
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  while (
+    lines.length &&
+    headerWords.includes(lines[0].toLowerCase())
+  ) {
+    lines.shift();
+  }
+
+  const isNumber = line =>
+    /^(hook\s*\d+|cta|intro|outro|\d+(?:\.\d+)?)\.?$/i.test(line);
+
+  const parsedRows = [];
+  let currentRow = null;
+
+  lines.forEach(line => {
+    if (isNumber(line)) {
+      if (currentRow) parsedRows.push(currentRow);
+
+      currentRow = {
+        nummer: line,
+        script: "",
+        scriptEn: ""
+      };
+    } else if (currentRow) {
+      if (/^(voice ?over|vo|v\.o\.?)$/i.test(line)) return;
+
+      currentRow.script +=
+        (currentRow.script ? " " : "") + line;
+    }
+  });
+
+  if (currentRow) parsedRows.push(currentRow);
+
+  return parsedRows;
+}
+
+function renderTable() {
+  if (!rows.length) {
+    $("tableWrapper").innerHTML = "";
+    $("exports").style.display = "none";
+    return;
+  }
+
+  const sourceName = currentLanguage().name;
+
+  let html = `
+    <table>
+      <thead>
+        <tr>
+          <th>Nummer</th>
+          <th>${sourceName}</th>
+          <th>English</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  rows.forEach((row, index) => {
+    html += `
+      <tr>
+        <td contenteditable
+            data-index="${index}"
+            data-key="nummer">${escapeHtml(row.nummer)}</td>
+
+        <td contenteditable
+            data-index="${index}"
+            data-key="script">${escapeHtml(row.script)}</td>
+
+        <td contenteditable
+            class="english"
+            data-index="${index}"
+            data-key="scriptEn">${escapeHtml(row.scriptEn)}</td>
+      </tr>
+    `;
+  });
+
+  html += "</tbody></table>";
+
+  $("tableWrapper").innerHTML = html;
+  $("exports").style.display = "flex";
+
+  document
+    .querySelectorAll("td[contenteditable]")
+    .forEach(cell => {
+      cell.addEventListener("input", () => {
+        rows[cell.dataset.index][cell.dataset.key] =
+          cell.innerText;
+      });
+    });
+}
+
+function splitText(text, maximumLength = 480) {
+  if (text.length <= maximumLength) return [text];
+
+  const sentences =
+    text.match(/[^.!?]+[.!?]*\s*/g) || [text];
+
+  const chunks = [];
+  let buffer = "";
+
+  sentences.forEach(sentence => {
+    if ((buffer + sentence).length > maximumLength) {
+      if (buffer) chunks.push(buffer.trim());
+      buffer = sentence;
+    } else {
+      buffer += sentence;
+    }
+  });
+
+  if (buffer) chunks.push(buffer.trim());
+
+  return chunks;
+}
+
+async function translateText(text) {
+  text = String(text || "").trim();
+  if (!text) return "";
+
+  const translatedParts = [];
+
+  for (const chunk of splitText(text)) {
+    const pair =
+      currentLanguage().apiCode + "|en";
+
+    const url =
+      "https://api.mymemory.translated.net/get?q=" +
+      encodeURIComponent(chunk) +
+      "&langpair=" +
+      encodeURIComponent(pair);
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error("The translation service could not be reached.");
+    }
+
+    const data = await response.json();
+
+    const translation =
+      data?.responseData?.translatedText || chunk;
+
+    if (
+      /MYMEMORY WARNING|QUERY LENGTH LIMIT/i.test(translation)
+    ) {
+      throw new Error(
+        "The free translation limit was reached. Try again later."
+      );
+    }
+
+    translatedParts.push(translation);
+  }
+
+  return translatedParts.join(" ");
+}
+
+async function translateAll() {
+  if (!rows.length) return;
+
+  const selectedLanguage = sourceLanguage;
+
+  $("translateBtn").disabled = true;
+  $("parseBtn").disabled = true;
+  $("progress").style.display = "block";
+
+  try {
+    for (let index = 0; index < rows.length; index++) {
+      if (sourceLanguage !== selectedLanguage) {
+        throw new Error(
+          "The language changed during translation. Please try again."
+        );
+      }
+
+      rows[index].scriptEn =
+        await translateText(rows[index].script);
+
+      const percentage =
+        Math.round(((index + 1) / rows.length) * 100);
+
+      $("progress").firstElementChild.style.width =
+        percentage + "%";
+
+      showStatus("Translating… " + percentage + "%");
+
+      renderTable();
+    }
+
+    saveHistory();
+
+    showStatus(
+      "✓ " + currentLanguage().name +
+      " → English translation complete.",
+      "ok"
+    );
+  } catch (error) {
+    showStatus("Error: " + error.message, "error");
+  } finally {
+    $("translateBtn").disabled = false;
+    $("parseBtn").disabled = false;
+
+    setTimeout(() => {
+      $("progress").style.display = "none";
+    }, 700);
+  }
+}
+
+function copyPlainText(text) {
+  const textarea = document.createElement("textarea");
+
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  const copied = document.execCommand("copy");
+
+  document.body.removeChild(textarea);
+
+  return copied;
+}
+
+function tableAsTsv() {
+  const header = [
+    "Nummer",
+    currentLanguage().name,
+    "English"
+  ].join("\t");
+
+  const body = rows
+    .map(row => [
+      row.nummer,
+      row.script,
+      row.scriptEn
+    ].join("\t"))
+    .join("\n");
+
+  return header + "\n" + body;
+}
+
+function copyTable() {
+  if (!rows.length) return;
+
+  const table = $("tableWrapper").querySelector("table");
+  const selection = window.getSelection();
+  const range = document.createRange();
+
+  range.selectNodeContents(table);
+  selection.removeAllRanges();
+  selection.addRange(range);
+
+  const copied = document.execCommand("copy");
+
+  selection.removeAllRanges();
+
+  showStatus(
+    copied
+      ? "✓ Table copied. Paste it into Google Docs."
+      : "Copy failed.",
+    copied ? "ok" : "error"
+  );
+}
+
+function copyForElevenLabs() {
+  const text = rows
+    .map(row => row.script.trim())
+    .filter(Boolean)
+    .join("\n\n");
+
+  if (!text) {
+    showStatus(
+      "No " + currentLanguage().name + " text to copy.",
+      "error"
+    );
+    return;
+  }
+
+  const copied = copyPlainText(text);
+
+  showStatus(
+    copied
+      ? "✓ " + currentLanguage().name +
+        " script copied for ElevenLabs."
+      : "Copy failed.",
+    copied ? "ok" : "error"
+  );
+}
+
+function srtTime(totalSeconds) {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+
+  const pad = number =>
+    String(number).padStart(2, "0");
+
+  return (
+    pad(hours) + ":" +
+    pad(minutes) + ":" +
+    pad(seconds) + ",000"
+  );
+}
+
+function generateSrt() {
+  let subtitleNumber = 1;
+  let startSeconds = 0;
+  const output = [];
+
+  rows.forEach(row => {
+    const text = row.script.trim();
+    if (!text) return;
+
+    output.push(
+      subtitleNumber + "\n" +
+      srtTime(startSeconds) + " --> " +
+      srtTime(startSeconds + 20) + "\n" +
+      text
+    );
+
+    subtitleNumber++;
+    startSeconds += 20;
+  });
+
+  if (!output.length) {
+    showStatus(
+      "No " + currentLanguage().name +
+      " text available for subtitles.",
+      "error"
+    );
+    return;
+  }
+
+  const blob = new Blob(
+    [output.join("\n\n") + "\n"],
+    { type: "application/x-subrip;charset=utf-8" }
+  );
+
+  const link = document.createElement("a");
+
+  link.href = URL.createObjectURL(blob);
+  link.download =
+    currentLanguage().apiCode + "-script-" +
+    Date.now() + ".srt";
+
+  link.click();
+
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+
+  showStatus("✓ SRT downloaded.", "ok");
+}
+
+function saveHistory() {
+  const history = JSON.parse(
+    localStorage.getItem("translatorHistory") || "[]"
+  );
+
+  history.unshift({
+    id: Date.now(),
+    sourceLanguage,
+    rows: JSON.parse(JSON.stringify(rows))
+  });
+
+  localStorage.setItem(
+    "translatorHistory",
+    JSON.stringify(history.slice(0, 50))
+  );
+}
+
+$("languageSelect").addEventListener("change", event => {
+  sourceLanguage = event.target.value;
+
+  if (rows.length) {
+    rows.forEach(row => {
+      row.scriptEn = "";
+    });
+
+    showStatus(
+      "Language changed to " +
+      currentLanguage().name +
+      ". Translate again to refresh the English column."
+    );
+  }
+
+  updateLanguageInterface();
+});
+
+$("parseBtn").addEventListener("click", () => {
+  rows = parseScript($("input").value);
+
+  if (!rows.length) {
+    showStatus(
+      "No rows were found. Make sure each row starts with a number, Hook, or CTA.",
+      "error"
+    );
+    return;
+  }
+
+  renderTable();
+  $("translateBtn").disabled = false;
+
+  showStatus(
+    "✓ Parsed " + rows.length + " " +
+    currentLanguage().name + " rows.",
+    "ok"
+  );
+});
+
+$("translateBtn").addEventListener("click", translateAll);
+
+$("sampleBtn").addEventListener("click", () => {
+  $("input").value = currentLanguage().sample;
+  showStatus(
+    currentLanguage().name +
+    " sample loaded. Click Parse script."
+  );
+});
+
+$("clearBtn").addEventListener("click", () => {
+  $("input").value = "";
+  rows = [];
+
+  renderTable();
+
+  $("translateBtn").disabled = true;
+  showStatus("");
+});
+
+$("copyTableBtn").addEventListener("click", copyTable);
+
+$("copyVoiceBtn").addEventListener(
+  "click",
+  copyForElevenLabs
+);
+
+$("copyTsvBtn").addEventListener("click", () => {
+  const copied = copyPlainText(tableAsTsv());
+
+  showStatus(
+    copied ? "✓ Three-column TSV copied." : "Copy failed.",
+    copied ? "ok" : "error"
+  );
+});
+
+$("srtBtn").addEventListener("click", generateSrt);
+
+$("printBtn").addEventListener("click", () => {
+  window.print();
+});
+
+function applyTheme(theme) {
+  if (theme === "light") {
+    document.documentElement.dataset.theme = "light";
+    $("themeBtn").textContent = "☀️ Light";
+  } else {
+    delete document.documentElement.dataset.theme;
+    $("themeBtn").textContent = "🌙 Dark";
+  }
+
+  localStorage.setItem("translatorTheme", theme);
+}
+
+$("themeBtn").addEventListener("click", () => {
+  const light =
+    document.documentElement.dataset.theme === "light";
+
+  applyTheme(light ? "dark" : "light");
+});
+
+applyTheme(
+  localStorage.getItem("translatorTheme") || "dark"
+);
+
+updateLanguageInterface();
 </script>
 </body>
 </html>

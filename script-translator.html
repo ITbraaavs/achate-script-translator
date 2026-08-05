@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Script Translator — Dutch → English</title>
+<title>Script Translator — German → English</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
@@ -49,7 +49,6 @@
   td[contenteditable]:focus{background:var(--focus);box-shadow:inset 0 0 0 2px var(--accent)}
   td.en{background:var(--encell)}
   td.num{font-weight:650;white-space:nowrap;color:var(--accent)}
-  td.type{color:var(--muted);white-space:nowrap}
   .tablewrap{overflow:auto;border-radius:10px;border:1px solid var(--line)}
   .status{font-size:12.5px;color:var(--muted);min-height:18px}
   .status.err{color:var(--danger)}
@@ -75,13 +74,13 @@
 <body>
 <header>
   <h1>📝 Script Translator</h1>
-  <span class="sub">Dutch → English · paste a script, get a clean bilingual table</span>
+  <span class="sub">German → English · paste a script, get a clean 3-column table</span>
   <button id="themeBtn" style="margin-left:auto" title="Switch between dark and light mode">🌙 Dark</button>
 </header>
 
 <div class="layout">
   <div class="main">
-    <textarea id="input" placeholder="Paste your script here (Nummer / Type / Script / Shots layout)…"></textarea>
+    <textarea id="input" placeholder="Paste your German script here (Nummer / Deutsch layout)…"></textarea>
     <div class="row">
       <button class="primary" id="parseBtn">① Parse script</button>
       <button class="green" id="translateBtn" disabled>② Translate to English</button>
@@ -96,7 +95,7 @@
     <div class="toolbar" id="exportBar" style="display:none">
       <span class="pill" id="rowCount">0 rows</span>
       <button id="copyBtn">📋 Copy for Google Docs</button>
-      <button id="elevenBtn" class="green">🎙️ Copy Script (NL) for ElevenLabs</button>
+      <button id="elevenBtn" class="green">🎙️ Copy German for ElevenLabs</button>
       <button id="copyTsvBtn">Copy as TSV</button>
       <button id="srtBtn">🎬 Generate SRT</button>
       <button id="pdfBtn">⬇️ Download PDF</button>
@@ -121,15 +120,15 @@
 
 <script>
 const $ = id => document.getElementById(id);
-let rows = []; // {nummer, type, script, scriptEn, shots, shotsEn}
+let rows = []; // {nummer, script, scriptEn}
 
 /* ---------- Parsing ---------- */
 function parseScript(text){
   const linesRaw = text.replace(/\r/g,'').split('\n');
   const lines = linesRaw.map(l=>l.trim()).filter(l=>l.length>0);
 
-  // drop leading header row (Nummer/Type/Script/Shots) if present
-  const headerWords = ['nummer','type','script','shots'];
+  // Drop leading column headings if present.
+  const headerWords = ['nummer','number','deutsch','german','englisch','english','script'];
   let start = 0;
   for(let i=0;i<Math.min(4,lines.length);i++){
     if(headerWords.includes(lines[i].toLowerCase())) start = i+1;
@@ -142,23 +141,20 @@ function parseScript(text){
     const l = lines[i];
     if(isNummer(l)){
       if(cur) out.push(cur);
-      cur = {nummer:l, type:'', script:'', shots:'', body:[]};
+      cur = {nummer:l, body:[]};
     } else if(cur){
       cur.body.push(l);
     }
   }
   if(cur) out.push(cur);
 
-  // For each record: optional Type (Voice over / VO), then first chunk = Script, rest = Shots
+  // Each number starts one row. Join wrapped lines into a single German cell.
   return out.map(r=>{
     let body = r.body.slice();
-    let type = '';
     if(body.length && /^(voice ?over|vo|v\.o\.?)$/i.test(body[0])){
-      type = body.shift();
+      body.shift();
     }
-    const script = body.shift() || '';
-    const shots  = body.join(' ');
-    return {nummer:r.nummer, type:type||'Voice over', script, scriptEn:'', shots, shotsEn:''};
+    return {nummer:r.nummer, script:body.join(' '), scriptEn:''};
   });
 }
 
@@ -167,11 +163,8 @@ function render(){
   if(!rows.length){ $('tableWrap').innerHTML=''; $('exportBar').style.display='none'; return; }
   const cols = [
     ['nummer','Nummer','num'],
-    ['type','Type','type'],
-    ['script','Script (NL)',''],
-    ['scriptEn','Script (EN)','en'],
-    ['shots','Shots (NL)',''],
-    ['shotsEn','Shots (EN)','en'],
+    ['script','German',''],
+    ['scriptEn','English','en'],
   ];
   let html = '<table><thead><tr>'+cols.map(c=>`<th>${c[1]}</th>`).join('')+'</tr></thead><tbody>';
   rows.forEach((r,ri)=>{
@@ -190,7 +183,7 @@ function render(){
 }
 function escapeHtml(s){return s.replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
 
-/* ---------- Translation (MyMemory free API, NL→EN) ---------- */
+/* ---------- Translation (MyMemory free API, DE→EN) ---------- */
 async function translateText(text){
   text = (text||'').trim();
   if(!text) return '';
@@ -198,7 +191,7 @@ async function translateText(text){
   const chunks = chunkText(text, 480);
   const parts = [];
   for(const ch of chunks){
-    const url = 'https://api.mymemory.translated.net/get?q='+encodeURIComponent(ch)+'&langpair=nl|en';
+    const url = 'https://api.mymemory.translated.net/get?q='+encodeURIComponent(ch)+'&langpair=de|en';
     const res = await fetch(url);
     const data = await res.json();
     let t = data && data.responseData ? data.responseData.translatedText : ch;
@@ -223,11 +216,10 @@ async function translateAll(){
   setBusy(true);
   const bar=$('bar'); bar.style.display='block'; bar.firstElementChild.style.width='0';
   status('Translating…');
-  const total = rows.length*2; let done=0;
+  const total = rows.length; let done=0;
   try{
     for(let i=0;i<rows.length;i++){
       rows[i].scriptEn = await translateText(rows[i].script); done++; progress(done,total);
-      rows[i].shotsEn  = await translateText(rows[i].shots);  done++; progress(done,total);
       render();
     }
     saveCurrent(true); // auto-save to history
@@ -244,7 +236,7 @@ function status(msg,cls){ const s=$('status'); s.textContent=msg||''; s.classNam
 
 /* ---------- Export ---------- */
 function buildHtmlTable(){
-  const cols=[['nummer','Nummer'],['type','Type'],['script','Script (NL)'],['scriptEn','Script (EN)'],['shots','Shots (NL)'],['shotsEn','Shots (EN)']];
+  const cols=[['nummer','Nummer'],['script','German'],['scriptEn','English']];
   let h='<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse"><thead><tr>'+
     cols.map(c=>`<th style="background:#eee">${c[1]}</th>`).join('')+'</tr></thead><tbody>';
   rows.forEach(r=>{ h+='<tr>'+cols.map(c=>`<td>${escapeHtml(r[c[0]]||'')}</td>`).join('')+'</tr>'; });
@@ -259,7 +251,7 @@ async function copyForDocs(){
   }
   // Fallback to async clipboard API (works on https/localhost)
   const html=buildHtmlTable();
-  const plain=rows.map(r=>[r.nummer,r.type,r.script,r.scriptEn,r.shots,r.shotsEn].join('\t')).join('\n');
+  const plain=rows.map(r=>[r.nummer,r.script,r.scriptEn].join('\t')).join('\n');
   try{
     await navigator.clipboard.write([new ClipboardItem({
       'text/html':new Blob([html],{type:'text/html'}),
@@ -299,37 +291,37 @@ function copyPlainText(text){
   return false;
 }
 function copyTsv(){
-  const header=['Nummer','Type','Script (NL)','Script (EN)','Shots (NL)','Shots (EN)'].join('\t');
-  const body=rows.map(r=>[r.nummer,r.type,r.script,r.scriptEn,r.shots,r.shotsEn].join('\t')).join('\n');
+  const header=['Nummer','German','English'].join('\t');
+  const body=rows.map(r=>[r.nummer,r.script,r.scriptEn].join('\t')).join('\n');
   if(copyPlainText(header+'\n'+body)) status('✓ Copied as TSV (tab-separated).','ok');
   else status('Copy failed — try again.','err');
 }
 function copyForEleven(){
   const text=rows.map(r=>(r.script||'').trim()).filter(Boolean).join('\n\n');
-  if(!text){ status('No Script (NL) text to copy.','err'); return; }
-  if(copyPlainText(text)) status('✓ Copied Script (NL) — paste into ElevenLabs. '+rows.filter(r=>(r.script||'').trim()).length+' lines.','ok');
+  if(!text){ status('No German text to copy.','err'); return; }
+  if(copyPlainText(text)) status('✓ Copied German script — paste into ElevenLabs. '+rows.filter(r=>(r.script||'').trim()).length+' lines.','ok');
   else status('Copy failed — try again.','err');
 }
 function downloadPdf(){
   const { jsPDF }=window.jspdf;
   const doc=new jsPDF({orientation:'landscape',unit:'pt',format:'a4'});
-  doc.setFontSize(15); doc.text('Script Translation — Dutch → English',40,40);
+  doc.setFontSize(15); doc.text('Script Translation — German → English',40,40);
   doc.setFontSize(9); doc.setTextColor(120); doc.text(new Date().toLocaleString()+'  ·  Created by christinebravo',40,56);
   doc.autoTable({
     startY:72,
-    head:[['Nummer','Type','Script (NL)','Script (EN)','Shots (NL)','Shots (EN)']],
-    body:rows.map(r=>[r.nummer,r.type,r.script,r.scriptEn,r.shots,r.shotsEn]),
+    head:[['Nummer','German','English']],
+    body:rows.map(r=>[r.nummer,r.script,r.scriptEn]),
     styles:{fontSize:8,cellPadding:4,valign:'top',overflow:'linebreak'},
     headStyles:{fillColor:[79,140,255],textColor:255},
-    columnStyles:{0:{cellWidth:46},1:{cellWidth:50},2:{cellWidth:160},3:{cellWidth:160},4:{cellWidth:150},5:{cellWidth:150}},
+    columnStyles:{0:{cellWidth:60},1:{cellWidth:360},2:{cellWidth:360}},
     alternateRowStyles:{fillColor:[245,247,250]}
   });
   doc.save('script-translation-'+Date.now()+'.pdf');
   status('✓ PDF downloaded.','ok');
 }
 
-/* ---------- SRT export (Script NL, 20-second cues, 2 lines × 15 chars) ---------- */
-const SRT_SECONDS = 20;   // each Script (NL) row spans a 20-second range
+/* ---------- SRT export (German, 20-second cues, 2 lines × 15 chars) ---------- */
+const SRT_SECONDS = 20;   // each German row spans a 20-second range
 const SRT_MAXCHARS = 15;  // max characters per subtitle line
 const SRT_MAXLINES = 2;   // max lines per subtitle cue
 function srtTime(totalSeconds){
@@ -373,7 +365,7 @@ function buildSrt(){
   return out.join('\n\n')+'\n';
 }
 function downloadSrt(){
-  if(!rows.filter(r=>(r.script||'').trim()).length){ status('No Script (NL) text to build subtitles from.','err'); return; }
+  if(!rows.filter(r=>(r.script||'').trim()).length){ status('No German text to build subtitles from.','err'); return; }
   const srt=buildSrt();
   const cues=srt.trim()?srt.trim().split('\n\n').length:0;
   const blob=new Blob([srt],{type:'application/x-subrip;charset=utf-8'});
@@ -382,7 +374,7 @@ function downloadSrt(){
   a.download='script-'+Date.now()+'.srt';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  status('✓ SRT downloaded — '+cues+' subtitles, max '+SRT_MAXLINES+' lines × '+SRT_MAXCHARS+' chars (Script NL).','ok');
+  status('✓ SRT downloaded — '+cues+' subtitles, max '+SRT_MAXLINES+' lines × '+SRT_MAXCHARS+' chars (German).','ok');
 }
 
 /* ---------- History (localStorage) ---------- */
@@ -417,29 +409,17 @@ function renderHist(){
 
 /* ---------- Sample ---------- */
 const SAMPLE=`Nummer
-Type
-Script
-Shots
+Deutsch
 Hook 1
- Voice over
-Geen tijd om de BBQ schoon te maken? Dan heb je dit nodig deze zomer.
-Split screen. Links oude manier BBQ schrobben. Rechts; product in gebruik.
+Keine Zeit, den Grill zu reinigen? Dann brauchst du das diesen Sommer.
 Hook 2
- Voice over
-Elke BBQ-liefhebber moet dit weten.
-Shot vieze BBQ. Cut naar product in gebruik, BBQ wordt schoon.
+Jeder Grillfan sollte das wissen.
 1.1
- Voice over
-Die lange zomeravonden met vrienden in de tuin zijn heerlijk. Lekker BBQ'en, wat drinken erbij en genieten van het mooie weer.
-Hebben we shots van een BBQ, of iets gezelligs in de tuin?
+Die langen Sommerabende mit Freunden im Garten sind wunderbar.
 1.3
- Voice over
-Daarom gebruik ik de Draadloze Hogedrukreiniger van Achaté.
-Product pakken en aanzetten.
+Deshalb benutze ich den kabellosen Hochdruckreiniger von Achaté.
 CTA
- Voice over
-Shop de Draadloze Hogedrukreiniger nu tijdens de Zomer Sale met kortingen tot 30% op www.achate.com
-Product shot. Logo + URL. Korting en sale groot in beeld.`;
+Kaufe den kabellosen Hochdruckreiniger jetzt im Sommerschlussverkauf.`;
 
 /* ---------- Wire up ---------- */
 $('parseBtn').onclick=()=>{
